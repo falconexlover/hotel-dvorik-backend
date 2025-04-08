@@ -8,8 +8,8 @@ const {
 } = require('../controllers/bookingController');
 const { protect } = require('../middleware/authMiddleware');
 
-// Создать новое бронирование
-router.post('/', protect, createBooking);
+// Создать новое бронирование (делаем публичным)
+router.post('/', createBooking);
 
 // Получить бронирование по номеру
 router.get('/:bookingNumber', getBookingByNumber);

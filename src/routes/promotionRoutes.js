@@ -12,14 +12,16 @@ const { protect, admin } = require('../middleware/authMiddleware');
 
 // Маршруты для создания и получения всех акций
 router.route('/')
-  .post(createPromotion) // <<< Временно убираем protect и admin
-  .get(protect, admin, getAllPromotions); // Используем импортированную функцию
-  // Если нужно публично показывать акции, можно добавить отдельный .get('/', getAllActivePromotions) в контроллере и роуте
+  // Защищаем создание акции
+  .post(protect, admin, createPromotion) 
+  // Делаем получение всех акций публичным
+  .get(getAllPromotions); 
 
 // Маршруты для конкретной акции по ID
+// Защищаем все операции с конкретной акцией
 router.route('/:id')
-  .get(protect, admin, getPromotionById) // Используем импортированную функцию
-  .put(protect, admin, updatePromotion) // Используем импортированную функцию
-  .delete(protect, admin, deletePromotion); // Используем импортированную функцию
+  .get(protect, admin, getPromotionById) 
+  .put(protect, admin, updatePromotion) 
+  .delete(protect, admin, deletePromotion);
 
 module.exports = router; 
