@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
 // @route   GET /api/rooms
 // @access  Public
 const getRooms = asyncHandler(async (req, res) => {
-  const rooms = await Room.find({});
+  const rooms = await Room.find({}).sort({ displayOrder: 1, createdAt: -1 });
   res.json(rooms);
 });
 
@@ -232,11 +232,48 @@ const deleteRoom = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Обновить порядок комнат
+// @route   PUT /api/rooms/order
+// @access  Private/Admin
+const updateRoomsOrder = asyncHandler(async (req, res) => {
+  const { orderedIds } = req.body; // Ожидаем массив ID в нужном порядке
+
+  if (!Array.isArray(orderedIds)) {
+    res.status(400);
+    throw new Error('Ожидался массив orderedIds');
+  }
+
+  // Используем транзакцию для атомарности обновления
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const updatePromises = orderedIds.map((id, index) => 
+      Room.findByIdAndUpdate(id, { displayOrder: index }, { session })
+    );
+    
+    await Promise.all(updatePromises);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({ message: 'Порядок комнат успешно обновлен' });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Ошибка обновления порядка комнат:", error);
+    res.status(500);
+    throw new Error('Не удалось обновить порядок комнат');
+  }
+});
+
 module.exports = {
   getRooms,
   getRoomById,
   checkRoomAvailability,
   createRoom,
   updateRoom,
-  deleteRoom
+  deleteRoom,
+  updateRoomsOrder
 }; 

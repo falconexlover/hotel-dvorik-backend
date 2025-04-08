@@ -6,7 +6,8 @@ const {
   checkRoomAvailability,
   createRoom,
   updateRoom,
-  deleteRoom
+  deleteRoom,
+  updateRoomsOrder
 } = require('../controllers/roomController');
 const { protect } = require('../middleware/authMiddleware');
 const { uploadSingle, uploadMultiple } = require('../middleware/uploadMiddleware');
@@ -28,5 +29,8 @@ router.put('/:id', protect, uploadMultiple, updateRoom);
 
 // Удалить комнату
 router.delete('/:id', protect, deleteRoom);
+
+// Обновить порядок комнат
+router.put('/order', protect, updateRoomsOrder);
 
 module.exports = router; 
