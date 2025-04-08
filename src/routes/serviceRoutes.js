@@ -8,17 +8,18 @@ const {
     deleteService
 } = require('../controllers/serviceController');
 const authMiddleware = require('../middleware/authMiddleware');
+const { protect } = require('../middleware/authMiddleware'); // Используем protect напрямую
 
 // GET /api/services - Получить все услуги (оставляем публичным)
 router.get('/', getAllServices); // Используем импортированную функцию напрямую
 
-// POST /api/services - Создать новую услугу (ВРЕМЕННО без защиты)
-router.post('/', createService); // Используем импортированную функцию напрямую
+// POST /api/services - Создать новую услугу (Защищено)
+router.post('/', protect, createService); 
 
-// PUT /api/services/:id - Обновить услугу (ВРЕМЕННО без защиты)
-router.put('/:id', updateService); // Используем импортированную функцию напрямую
+// PUT /api/services/:id - Обновить услугу (Защищено)
+router.put('/:id', protect, updateService); 
 
-// DELETE /api/services/:id - Удалить услугу (ВРЕМЕННО без защиты)
-router.delete('/:id', deleteService); // Используем импортированную функцию напрямую
+// DELETE /api/services/:id - Удалить услугу (Защищено)
+router.delete('/:id', protect, deleteService); 
 
 module.exports = router; 
