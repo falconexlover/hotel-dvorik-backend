@@ -11,7 +11,8 @@ const bannerSchema = mongoose.Schema({
 const aboutSchema = mongoose.Schema({
   title: { type: String, default: 'О нас' },
   content: { type: String, default: 'Подробное описание отеля...' },
-  image: { type: String, default: '' }
+  image: { type: String, default: '' },
+  imagePublicId: { type: String, default: '' }
 }, { _id: false });
 
 const contactSchema = mongoose.Schema({
