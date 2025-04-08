@@ -72,22 +72,27 @@ const uploadMultipleToCloudinary = async (files) => {
 // @route   POST /api/rooms
 // @access  Private/Admin
 const createRoom = asyncHandler(async (req, res) => {
-  const { title, price, capacity, features, priceValue } = req.body;
+  // Извлекаем поля из req.body
+  const { title, price, capacity, features, pricePerNight, isAvailable } = req.body;
 
   let processedFeatures = [];
-  if (features) {
-    // Обрабатываем features как строку или массив строк от FormData
-    if (Array.isArray(features)) {
-      processedFeatures = features.filter(f => typeof f === 'string'); // Берем только строки из массива
-    } else if (typeof features === 'string') {
-      processedFeatures = [features]; // Преобразуем одну строку в массив
+  // Парсим features, если они пришли как JSON строка
+  if (features && typeof features === 'string') {
+    try {
+      const parsedFeatures = JSON.parse(features);
+      if (Array.isArray(parsedFeatures)) {
+        processedFeatures = parsedFeatures.filter(f => typeof f === 'string');
+      }
+    } catch (e) {
+      console.error('Ошибка парсинга features (createRoom):', e);
+      // Можно вернуть ошибку или использовать пустое значение
     }
   }
 
-  let imageUploadResults = []; // Теперь массив
-  if (req.files && req.files.length > 0) { // Проверяем req.files
+  let imageUploadResults = [];
+  if (req.files && req.files.length > 0) {
     try {
-      imageUploadResults = await uploadMultipleToCloudinary(req.files); // Используем новую функцию
+      imageUploadResults = await uploadMultipleToCloudinary(req.files);
     } catch (uploadError) {
       console.error('Cloudinary Upload Error (Create Room):', uploadError);
       res.status(500);
@@ -99,11 +104,13 @@ const createRoom = asyncHandler(async (req, res) => {
     const newRoom = await Room.create({
       title,
       price,
-      priceValue: priceValue || 0,
+      // priceValue: priceValue || 0, // Используем pricePerNight
+      pricePerNight: pricePerNight || 0,
       capacity: capacity || 1,
-      features: processedFeatures, // <<< Используем обработанные features
+      features: processedFeatures,
       imageUrls: imageUploadResults.map(r => r.secure_url),
       cloudinaryPublicIds: imageUploadResults.map(r => r.public_id),
+      isAvailable: isAvailable === 'true' || isAvailable === true // Обрабатываем строку 'true'
     });
     res.status(201).json(newRoom);
   } catch (dbError) {
@@ -129,29 +136,77 @@ const updateRoom = asyncHandler(async (req, res) => {
     throw new Error('Комната не найдена');
   }
 
-  const { title, price, capacity, features, priceValue } = req.body;
-  // TODO: Валидация
+  // Извлекаем поля из req.body
+  const { title, price, capacity, features, pricePerNight, isAvailable, deletedImages } = req.body;
 
   room.title = title || room.title;
   room.price = price || room.price;
-  room.priceValue = priceValue !== undefined ? priceValue : room.priceValue;
+  // room.priceValue = priceValue !== undefined ? priceValue : room.priceValue;
+  room.pricePerNight = pricePerNight !== undefined ? pricePerNight : room.pricePerNight;
   room.capacity = capacity || room.capacity;
-  
-  // Обрабатываем features
-  if (features !== undefined) { // Обновляем, только если поле пришло (даже если пустое)
-    if (Array.isArray(features)) {
-      room.features = features.filter(f => typeof f === 'string');
-    } else if (typeof features === 'string' && features.trim() !== '') { // Если одна строка, кладем в массив
-      room.features = [features];
+  room.isAvailable = (isAvailable !== undefined) ? (isAvailable === 'true' || isAvailable === true) : room.isAvailable;
+
+  // Обрабатываем features, если пришли как JSON строка
+  if (features !== undefined) {
+    if (typeof features === 'string') {
+        try {
+            const parsedFeatures = JSON.parse(features);
+             if (Array.isArray(parsedFeatures)) {
+                room.features = parsedFeatures.filter(f => typeof f === 'string');
+            } else {
+                room.features = []; // Если парсинг дал не массив
+            }
+        } catch (e) {
+             console.error('Ошибка парсинга features (updateRoom):', e);
+             room.features = []; // Ставим пустой массив при ошибке парсинга
+        }
+    } else if (Array.isArray(features)) {
+        // На случай если вдруг придет как массив (маловероятно с FormData)
+        room.features = features.filter(f => typeof f === 'string');
     } else {
-       room.features = []; // Если пришло что-то другое или пустая строка, ставим пустой массив
-    } 
-  } else {
-    // Если поле features вообще не пришло в запросе, не трогаем его в БД
+        room.features = []; // Сбрасываем, если пришло что-то не то
+    }
   }
 
+  // --- Обработка Удаления Старых Изображений ---
+  let deletedIdsArray = [];
+  if (deletedImages && typeof deletedImages === 'string') {
+      try {
+          deletedIdsArray = JSON.parse(deletedImages);
+          if (!Array.isArray(deletedIdsArray)) { deletedIdsArray = []; }
+      } catch (e) {
+          console.error('Ошибка парсинга deletedImages:', e);
+          deletedIdsArray = [];
+      }
+  }
+
+  if (deletedIdsArray.length > 0) {
+      try {
+          // Удаляем файлы из Cloudinary
+          const deletePromises = deletedIdsArray.map(publicId => cloudinary.uploader.destroy(publicId));
+          await Promise.all(deletePromises);
+          console.log('Старые изображения удалены из Cloudinary:', deletedIdsArray);
+
+          // Удаляем ID и URL из массивов в документе комнаты
+          room.cloudinaryPublicIds = room.cloudinaryPublicIds?.filter(id => !deletedIdsArray.includes(id));
+          // Важно: Синхронно удаляем URL по индексам удаленных ID или по самим URL, если ID нет
+          // Этот способ не идеален, если ID могут отсутствовать. Лучше переделать модель?
+          // Пока что будем считать, что ID всегда есть и массивы синхронны.
+          const urlsToDelete = room.imageUrls?.filter((url, index) => 
+              deletedIdsArray.includes(room.cloudinaryPublicIds?.[index] || '')
+          );
+          room.imageUrls = room.imageUrls?.filter(url => !urlsToDelete?.includes(url));
+
+      } catch (deleteError) {
+          console.error('Ошибка при удалении старых изображений:', deleteError);
+          // Не прерываем обновление, но логируем ошибку
+          toast.warn('Не удалось удалить некоторые старые изображения из хранилища.');
+      }
+  }
+  // --------------------------------------------
+
   // Обработка новых изображений (если они пришли в req.files)
-  if (req.files && req.files.length > 0) {
+  if (req.files && Array.isArray(req.files) && req.files.length > 0) { // Убедимся, что req.files это массив
     try {
       // Загружаем новые изображения
       const newImageUploadResults = await uploadMultipleToCloudinary(req.files);
