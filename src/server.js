@@ -8,6 +8,8 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const authRoutes = require('./routes/authRoutes');
 const galleryRoutes = require('./routes/galleryRoutes');
 const homepageRoutes = require('./routes/homepageRoutes');
+const serviceRoutes = require('./routes/serviceRoutes');
+const promotionRoutes = require('./routes/promotionRoutes');
 const seedDatabase = require('./utils/seedData');
 
 // Загрузка переменных окружения
@@ -28,6 +30,8 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/homepage', homepageRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/promotions', promotionRoutes);
 
 // Проверка API
 app.get('/', (req, res) => {
@@ -44,7 +48,7 @@ app.listen(PORT, () => {
   console.log(`Сервер запущен в ${process.env.NODE_ENV} режиме на порту ${PORT}`);
   
   // Если включен режим разработки, заполняем базу данных начальными данными
-  // if (process.env.NODE_ENV === 'development') {
-  //   seedDatabase();
-  // }
+  if (process.env.NODE_ENV === 'development') {
+    seedDatabase();
+  }
 }); 

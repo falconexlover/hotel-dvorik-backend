@@ -24,7 +24,11 @@ const uploadSingle = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // Лимит 5MB
 }).single('image'); // 'image' - это имя поля в FormData
 
-// Middleware для загрузки нескольких файлов (если понадобится)
-// const uploadMultiple = multer({...}).array('images', 5); // 'images' - имя поля, 5 - макс. кол-во
+// Middleware для загрузки нескольких файлов
+const uploadMultiple = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }
+}).array('imageFiles', 10); // 'imageFiles' - имя поля, 10 - макс. кол-во
 
-module.exports = { uploadSingle }; 
+module.exports = { uploadSingle, uploadMultiple }; 

@@ -1,21 +1,16 @@
 const mongoose = require('mongoose');
 
 const roomSchema = mongoose.Schema({
-  id: {
-    type: String,
-    required: true,
-    unique: true
-  },
   title: {
     type: String,
     required: true
   },
-  imageUrl: {
-    type: String,
+  imageUrls: {
+    type: [String],
     required: false
   },
-  cloudinaryPublicId: {
-    type: String,
+  cloudinaryPublicIds: {
+    type: [String],
     required: false
   },
   price: {

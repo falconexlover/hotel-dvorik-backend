@@ -9,8 +9,8 @@ const galleryImageSchema = mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ['Территория', 'Номера', 'Кафе', 'Другое'], // Примерные категории
-      default: 'Другое',
+      enum: ['rooms', 'sauna', 'conference', 'territory', 'party'],
+      default: 'territory',
     },
     description: {
       type: String,

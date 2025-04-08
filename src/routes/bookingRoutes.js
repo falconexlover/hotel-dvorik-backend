@@ -9,10 +9,10 @@ const {
 const { protect } = require('../middleware/authMiddleware');
 
 // Создать новое бронирование
-router.post('/', createBooking);
+router.post('/', protect, createBooking);
 
 // Получить бронирование по номеру
-router.get('/:number', getBookingByNumber);
+router.get('/:bookingNumber', getBookingByNumber);
 
 // Получить все бронирования
 router.get('/', protect, getAllBookings);

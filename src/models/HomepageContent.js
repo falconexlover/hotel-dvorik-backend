@@ -1,42 +1,47 @@
 const mongoose = require('mongoose');
 
-// Схема для отдельного блока контента (если нужно)
-// const contentBlockSchema = mongoose.Schema({
-//   title: String,
-//   text: String,
-//   imageUrl: String,
-// });
+// Определяем вложенные схемы для лучшей структуры
+const bannerSchema = mongoose.Schema({
+  title: { type: String, default: 'Добро пожаловать в Лесной Дворик!' },
+  subtitle: { type: String, default: 'Ваш уютный отдых на природе' },
+  buttonText: { type: String, default: 'Забронировать' },
+  buttonLink: { type: String, default: '/booking' }
+}, { _id: false });
 
+const aboutSchema = mongoose.Schema({
+  title: { type: String, default: 'О нас' },
+  content: { type: String, default: 'Подробное описание отеля...' },
+  image: { type: String, default: '' }
+}, { _id: false });
+
+const contactSchema = mongoose.Schema({
+  title: { type: String, default: 'Контактная информация' },
+  address: { type: String, default: 'Адрес не указан' },
+  phone: { type: [String], default: [] },
+  email: { type: String, default: 'Email не указан' },
+}, { _id: false });
+
+// Основная схема
 const homepageContentSchema = mongoose.Schema(
   {
-    // Идентификатор для поиска единственного документа
     identifier: {
       type: String,
       default: 'main',
       unique: true,
     },
-    // Пример полей для главной страницы
-    heroTitle: {
-      type: String,
-      default: 'Добро пожаловать в Лесной Дворик!',
-    },
-    heroSubtitle: {
-      type: String,
-      default: 'Ваш уютный отдых на природе',
-    },
     aboutText: {
       type: String,
       default: 'Подробное описание отеля...',
     },
-    // Можно добавить массивы объектов для повторяющихся блоков
-    // features: [contentBlockSchema],
+    banner: { type: bannerSchema, default: () => ({}) },
+    about: { type: aboutSchema, default: () => ({}) },
+    contact: { type: contactSchema, default: () => ({}) },
   },
   {
-    timestamps: true, // Добавляем временные метки
+    timestamps: true,
   }
 );
 
-// Метод для получения или создания контента главной страницы
 homepageContentSchema.statics.getSingleton = async function () {
   let content = await this.findOne({ identifier: 'main' });
   if (!content) {

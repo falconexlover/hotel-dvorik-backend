@@ -9,7 +9,7 @@ const {
   deleteRoom
 } = require('../controllers/roomController');
 const { protect } = require('../middleware/authMiddleware');
-const { uploadSingle } = require('../middleware/uploadMiddleware');
+const { uploadSingle, uploadMultiple } = require('../middleware/uploadMiddleware');
 
 // Получить все комнаты
 router.get('/', getRooms);
@@ -21,10 +21,10 @@ router.get('/:id', getRoomById);
 router.post('/check-availability', checkRoomAvailability);
 
 // Создать новую комнату
-router.post('/', protect, uploadSingle, createRoom);
+router.post('/', protect, uploadMultiple, createRoom);
 
 // Обновить комнату
-router.put('/:id', protect, uploadSingle, updateRoom);
+router.put('/:id', protect, uploadMultiple, updateRoom);
 
 // Удалить комнату
 router.delete('/:id', protect, deleteRoom);

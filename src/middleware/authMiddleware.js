@@ -40,4 +40,16 @@ const protect = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { protect }; 
+// Middleware для проверки прав администратора
+const admin = (req, res, next) => {
+  // Предполагаем, что protect уже добавил req.user
+  if (req.user && req.user.isAdmin) {
+    next(); // Пользователь - админ, пропускаем дальше
+  } else {
+    res.status(403); // Forbidden
+    throw new Error('Доступ запрещен. Требуются права администратора.');
+  }
+};
+
+// Экспортируем обе функции
+module.exports = { protect, admin }; 
