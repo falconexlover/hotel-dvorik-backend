@@ -5,7 +5,9 @@ const bannerSchema = mongoose.Schema({
   title: { type: String, default: 'Добро пожаловать в Лесной Дворик!' },
   subtitle: { type: String, default: 'Ваш уютный отдых на природе' },
   buttonText: { type: String, default: 'Забронировать' },
-  buttonLink: { type: String, default: '/booking' }
+  buttonLink: { type: String, default: '/booking' },
+  image: { type: String, default: '' },
+  imagePublicId: { type: String, default: '' }
 }, { _id: false });
 
 const aboutSchema = mongoose.Schema({

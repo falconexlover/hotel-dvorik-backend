@@ -19,6 +19,10 @@ const getRoomById = asyncHandler(async (req, res) => {
   const room = await Room.findById(req.params.id);
   
   if (room) {
+    console.log(`[getRoomById] Sending room data for ID ${req.params.id}:`, {
+        imageUrls: room.imageUrls,
+        cloudinaryPublicIds: room.cloudinaryPublicIds
+    });
     res.json(room);
   } else {
     res.status(404);
@@ -66,6 +70,29 @@ const uploadMultipleToCloudinary = async (files) => {
     secure_url: result.secure_url, 
     public_id: result.public_id 
   }));
+};
+
+// Вспомогательная функция для извлечения publicId из URL Cloudinary
+const extractPublicIdFromUrl = (url) => {
+  try {
+    const urlParts = url.split('/');
+    const uploadIndex = urlParts.indexOf('upload');
+    // Ищем ID после версии (vXXXXXXX) и перед расширением
+    if (uploadIndex !== -1 && urlParts.length > uploadIndex + 2) {
+       // Собираем части ID, которые могут содержать '/'
+       const potentialIdParts = urlParts.slice(uploadIndex + 2);
+       let publicId = potentialIdParts.join('/');
+       // Убираем расширение файла
+       const lastDotIndex = publicId.lastIndexOf('.');
+       if (lastDotIndex !== -1) {
+           publicId = publicId.substring(0, lastDotIndex);
+       }
+       return publicId;
+    }
+  } catch (e) {
+    console.error("Ошибка извлечения publicId из URL:", url, e);
+  }
+  return null;
 };
 
 // @desc    Создать новую комнату
@@ -137,11 +164,10 @@ const updateRoom = asyncHandler(async (req, res) => {
   }
 
   // Извлекаем поля из req.body
-  const { title, price, capacity, features, pricePerNight, isAvailable, deletedImages } = req.body;
+  const { title, price, capacity, features, pricePerNight, isAvailable, imagesToDelete } = req.body;
 
   room.title = title || room.title;
   room.price = price || room.price;
-  // room.priceValue = priceValue !== undefined ? priceValue : room.priceValue;
   room.pricePerNight = pricePerNight !== undefined ? pricePerNight : room.pricePerNight;
   room.capacity = capacity || room.capacity;
   room.isAvailable = (isAvailable !== undefined) ? (isAvailable === 'true' || isAvailable === true) : room.isAvailable;
@@ -168,81 +194,108 @@ const updateRoom = asyncHandler(async (req, res) => {
     }
   }
 
-  // --- Обработка Удаления Старых Изображений ---
-  let deletedIdsArray = [];
-  if (deletedImages && typeof deletedImages === 'string') {
+  // --- ПЕРЕРАБОТАННАЯ Логика Обработки Изображений --- 
+
+  // 1. Обработка удаления
+  let imagesToDeleteParsed = [];
+  if (imagesToDelete && typeof imagesToDelete === 'string') {
       try {
-          deletedIdsArray = JSON.parse(deletedImages);
-          if (!Array.isArray(deletedIdsArray)) { deletedIdsArray = []; }
-      } catch (e) {
-          console.error('Ошибка парсинга deletedImages:', e);
-          deletedIdsArray = [];
+          imagesToDeleteParsed = JSON.parse(imagesToDelete);
+          if (!Array.isArray(imagesToDeleteParsed)) imagesToDeleteParsed = [];
+      } catch (e) { 
+          console.error('[updateRoom] Ошибка парсинга imagesToDelete:', e); 
+          imagesToDeleteParsed = []; 
       }
   }
 
-  if (deletedIdsArray.length > 0) {
-      try {
-          // Удаляем файлы из Cloudinary
-          const deletePromises = deletedIdsArray.map(publicId => cloudinary.uploader.destroy(publicId));
-          await Promise.all(deletePromises);
-          console.log('Старые изображения удалены из Cloudinary:', deletedIdsArray);
+  const cloudinaryIdsToDelete = [];
+  const urlsToRemoveFromDB = [];
 
-          // Удаляем ID и URL из массивов в документе комнаты
-          room.cloudinaryPublicIds = room.cloudinaryPublicIds?.filter(id => !deletedIdsArray.includes(id));
-          // Важно: Синхронно удаляем URL по индексам удаленных ID или по самим URL, если ID нет
-          // Этот способ не идеален, если ID могут отсутствовать. Лучше переделать модель?
-          // Пока что будем считать, что ID всегда есть и массивы синхронны.
-          const urlsToDelete = room.imageUrls?.filter((url, index) => 
-              deletedIdsArray.includes(room.cloudinaryPublicIds?.[index] || '')
-          );
-          room.imageUrls = room.imageUrls?.filter(url => !urlsToDelete?.includes(url));
+  if (imagesToDeleteParsed.length > 0) {
+      console.log('[updateRoom] Обработка удаляемых изображений:', imagesToDeleteParsed);
+      imagesToDeleteParsed.forEach(imgData => {
+          if (imgData && imgData.url) {
+              urlsToRemoveFromDB.push(imgData.url);
+              let publicId = imgData.publicId;
+              if (!publicId) { // Пытаемся извлечь, если не пришел
+                  publicId = extractPublicIdFromUrl(imgData.url);
+                  if (publicId) {
+                      console.log(`[updateRoom] Извлечен publicId '${publicId}' из URL '${imgData.url}'`);
+                  } else {
+                      console.warn(`[updateRoom] Не удалось извлечь publicId из URL для удаления: ${imgData.url}`);
+                  }
+              }
+              if (publicId) {
+                  cloudinaryIdsToDelete.push(publicId);
+              }
+          }
+      });
 
-      } catch (deleteError) {
-          console.error('Ошибка при удалении старых изображений:', deleteError);
-          // Не прерываем обновление, но логируем ошибку
-          toast.warn('Не удалось удалить некоторые старые изображения из хранилища.');
+      if (cloudinaryIdsToDelete.length > 0) {
+          console.log('[updateRoom] Попытка удаления из Cloudinary:', cloudinaryIdsToDelete);
+          try {
+              const deletionResults = await Promise.all(cloudinaryIdsToDelete.map(id => cloudinary.uploader.destroy(id)));
+              console.log('[updateRoom] Результат удаления из Cloudinary:', deletionResults);
+              // Проверяем результат удаления (может быть { result: 'ok' } или { result: 'not found' })
+              const successfullyDeletedIds = cloudinaryIdsToDelete.filter((_, index) => 
+                  deletionResults[index] && (deletionResults[index].result === 'ok' || deletionResults[index].result === 'not found')
+              );
+              console.log('[updateRoom] Успешно удаленные или не найденные в Cloudinary ID:', successfullyDeletedIds);
+              // Фильтруем URL для удаления из БД только для тех, что успешно удалены/не найдены в Cloudinary
+              const finalUrlsToRemoveFromDB = urlsToRemoveFromDB.filter(url => {
+                 let urlPublicId = extractPublicIdFromUrl(url);
+                 return successfullyDeletedIds.includes(urlPublicId);
+              });
+              
+              // Обновляем массивы в объекте room
+              room.imageUrls = room.imageUrls.filter(url => !finalUrlsToRemoveFromDB.includes(url));
+              room.cloudinaryPublicIds = room.cloudinaryPublicIds.filter(id => !successfullyDeletedIds.includes(id));
+              console.log('[updateRoom] Массивы imageUrls и cloudinaryPublicIds обновлены в объекте.');
+          } catch (deleteError) {
+              console.error('[updateRoom] Ошибка при удалении файлов из Cloudinary:', deleteError);
+              // Можно решить, прерывать ли операцию или просто логировать
+              // res.status(500); throw new Error('Ошибка при удалении старых изображений');
+          }
+      } else if (urlsToRemoveFromDB.length > 0) {
+         // Если были URL для удаления, но не было ID (т.е. только из БД)
+         room.imageUrls = room.imageUrls.filter(url => !urlsToRemoveFromDB.includes(url));
+         console.log('[updateRoom] Удалены URL из объекта комнаты (без удаления из Cloudinary):', urlsToRemoveFromDB);
       }
   }
-  // --------------------------------------------
 
-  // Обработка новых изображений (если они пришли в req.files)
-  if (req.files && Array.isArray(req.files) && req.files.length > 0) { // Убедимся, что req.files это массив
+  // 2. Обработка добавления новых файлов
+  if (req.files && req.files.length > 0) {
+    console.log(`[updateRoom] Добавляются ${req.files.length} новых изображений.`);
     try {
-      // Загружаем новые изображения
-      const newImageUploadResults = await uploadMultipleToCloudinary(req.files);
-      
-      // Добавляем новые URL и ID к существующим массивам
-      room.imageUrls = [...(room.imageUrls || []), ...newImageUploadResults.map(r => r.secure_url)];
-      room.cloudinaryPublicIds = [...(room.cloudinaryPublicIds || []), ...newImageUploadResults.map(r => r.public_id)];
-
+      const imageUploadResults = await uploadMultipleToCloudinary(req.files);
+      console.log('[updateRoom] Результат загрузки новых изображений:', imageUploadResults);
+      room.imageUrls.push(...imageUploadResults.map(r => r.secure_url));
+      room.cloudinaryPublicIds.push(...imageUploadResults.map(r => r.public_id));
+      console.log('[updateRoom] Новые imageUrls и cloudinaryPublicIds добавлены в объект.');
     } catch (uploadError) {
       console.error('Cloudinary Upload Error (Update Room):', uploadError);
-      // Можно решить, прерывать ли обновление или просто сообщить об ошибке
-      res.status(500); // Или просто логировать и продолжать
+      res.status(500);
       throw new Error('Ошибка при загрузке новых изображений комнаты');
     }
   }
 
-  // TODO: Добавить логику для УДАЛЕНИЯ существующих изображений, если нужно
-  // Например, фронтенд может присылать массив public_id для удаления
-  // const { imagesToDelete } = req.body; 
-  // if (imagesToDelete && Array.isArray(imagesToDelete)) {
-  //   try {
-  //      const deletePromises = imagesToDelete.map(publicId => cloudinary.uploader.destroy(publicId));
-  //      await Promise.all(deletePromises);
-  //      // Удалить соответствующие ID и URL из массивов room.cloudinaryPublicIds и room.imageUrls
-  //      room.cloudinaryPublicIds = room.cloudinaryPublicIds.filter(id => !imagesToDelete.includes(id));
-  //      // ... аналогично для imageUrls ...
-  //   } catch (deleteError) { ... }
-  // }
-
+  // 3. Сохранение комнаты ОДИН раз
   try {
     const updatedRoom = await room.save();
+    console.log('[updateRoom] Комната успешно сохранена.');
     res.json(updatedRoom);
   } catch (dbError) {
-     console.error('Database Save Error (Update Room):', dbError);
-     res.status(500);
-     throw new Error('Ошибка при обновлении комнаты');
+    console.error('Database Save Error (Update Room):', dbError);
+    // Важно: Если была загрузка новых файлов и произошла ошибка БД,
+    // нужно откатить загрузку (удалить новые файлы из Cloudinary).
+    // Эта логика здесь не добавлена для простоты, но в проде нужна.
+    if (dbError.name === 'VersionError') {
+        res.status(409); // Conflict
+        throw new Error('Конфликт версий. Данные были изменены другим пользователем. Попробуйте обновить страницу и повторить.');
+    } else {
+        res.status(500);
+        throw new Error('Ошибка при сохранении обновлений комнаты');
+    }
   }
 });
 
@@ -287,39 +340,72 @@ const deleteRoom = asyncHandler(async (req, res) => {
   }
 });
 
+const MAX_RETRIES = 3; // Максимальное количество повторных попыток
+const RETRY_DELAY_MS = 100; // Задержка перед повторной попыткой (в миллисекундах)
+
 // @desc    Обновить порядок комнат
 // @route   PUT /api/rooms/order
 // @access  Private/Admin
 const updateRoomsOrder = asyncHandler(async (req, res) => {
-  const { orderedIds } = req.body; // Ожидаем массив ID в нужном порядке
+  const { orderedIds } = req.body; 
+  console.log('[updateRoomsOrder] Received orderedIds:', orderedIds);
 
   if (!Array.isArray(orderedIds)) {
+    console.error('[updateRoomsOrder] Error: orderedIds is not an array');
     res.status(400);
     throw new Error('Ожидался массив orderedIds');
   }
 
-  // Используем транзакцию для атомарности обновления
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  let retries = 0;
+  while (retries < MAX_RETRIES) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    console.log(`[updateRoomsOrder] Attempt ${retries + 1}/${MAX_RETRIES}. Transaction started.`);
 
-  try {
-    const updatePromises = orderedIds.map((id, index) => 
-      Room.findByIdAndUpdate(id, { displayOrder: index }, { session })
-    );
-    
-    await Promise.all(updatePromises);
+    try {
+      const updatePromises = orderedIds.map((id, index) => {
+        console.log(`[updateRoomsOrder Attempt ${retries + 1}] Updating room ${id} with displayOrder ${index}`);
+        return Room.findByIdAndUpdate(id, { displayOrder: index }, { session })
+          .catch(err => {
+               console.error(`[updateRoomsOrder Attempt ${retries + 1}] Error updating room ${id} within transaction:`, err);
+               throw err; // Пробрасываем ошибку, чтобы Promise.all завершился неудачно
+          });
+      });
+      
+      const results = await Promise.all(updatePromises);
+      console.log(`[updateRoomsOrder Attempt ${retries + 1}] Update promises finished.`, results.length, 'documents processed');
 
-    await session.commitTransaction();
-    session.endSession();
+      await session.commitTransaction();
+      console.log(`[updateRoomsOrder Attempt ${retries + 1}] Transaction committed successfully.`);
+      session.endSession();
 
-    res.json({ message: 'Порядок комнат успешно обновлен' });
+      res.json({ message: 'Порядок комнат успешно обновлен' });
+      return; // Выходим из функции при успехе
 
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error("Ошибка обновления порядка комнат:", error);
-    res.status(500);
-    throw new Error('Не удалось обновить порядок комнат');
+    } catch (error) {
+      console.error(`[updateRoomsOrder Attempt ${retries + 1}] Error during transaction:`, error);
+      // Важно: проверяем, можно ли безопасно откатить транзакцию
+      if (session.inTransaction()) {
+         await session.abortTransaction();
+         console.log(`[updateRoomsOrder Attempt ${retries + 1}] Transaction aborted.`);
+      } else {
+         console.log(`[updateRoomsOrder Attempt ${retries + 1}] Session not in transaction, cannot abort.`);
+      }
+      session.endSession();
+
+      // Проверяем, является ли ошибка временной ошибкой транзакции
+      if (error.hasErrorLabel && error.hasErrorLabel('TransientTransactionError') && retries < MAX_RETRIES - 1) {
+        retries++;
+        console.log(`[updateRoomsOrder] TransientTransactionError detected. Retrying attempt ${retries + 1}/${MAX_RETRIES} after ${RETRY_DELAY_MS}ms...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS)); // Ждем перед следующей попыткой
+        continue; // Переходим к следующей итерации цикла while
+      } else {
+        // Если это не временная ошибка или попытки исчерпаны, пробрасываем ошибку дальше
+        console.error('[updateRoomsOrder] Non-retryable error or max retries reached.');
+        res.status(500);
+        throw new Error('Не удалось обновить порядок комнат после нескольких попыток');
+      }
+    }
   }
 });
 

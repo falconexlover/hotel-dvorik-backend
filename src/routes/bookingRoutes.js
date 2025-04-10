@@ -4,7 +4,8 @@ const {
   createBooking,
   getBookingByNumber,
   getAllBookings,
-  deleteBooking
+  deleteBooking,
+  getBookingById
 } = require('../controllers/bookingController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -16,6 +17,9 @@ router.get('/:bookingNumber', getBookingByNumber);
 
 // Получить все бронирования
 router.get('/', protect, getAllBookings);
+
+// Получить бронирование по ID
+router.get('/id/:id', getBookingById);
 
 // Удалить бронирование (используем _id из MongoDB)
 router.delete('/:id', protect, deleteBooking);

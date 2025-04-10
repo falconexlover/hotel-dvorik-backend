@@ -24,13 +24,13 @@ router.post('/check-availability', checkRoomAvailability);
 // Создать новую комнату
 router.post('/', protect, uploadMultiple, createRoom);
 
+// Обновить порядок комнат
+router.put('/order', protect, updateRoomsOrder);
+
 // Обновить комнату
 router.put('/:id', protect, uploadMultiple, updateRoom);
 
 // Удалить комнату
 router.delete('/:id', protect, deleteRoom);
-
-// Обновить порядок комнат
-router.put('/order', protect, updateRoomsOrder);
 
 module.exports = router; 

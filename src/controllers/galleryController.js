@@ -119,10 +119,50 @@ const deleteImage = asyncHandler(async (req, res) => {
   res.json({ message: 'Изображение успешно удалено' });
 });
 
+// @desc    Обновить порядок изображений
+// @route   PUT /api/gallery/order
+// @access  Private/Admin
+const updateImageOrder = asyncHandler(async (req, res) => {
+  const { orderedIds } = req.body; // Массив ID в новом порядке
+
+  // Добавляем лог для отладки
+  console.log('Received request to update image order:', req.body);
+  console.log('Ordered IDs:', orderedIds);
+
+  if (!Array.isArray(orderedIds)) {
+    res.status(400);
+    throw new Error('Ожидался массив ID изображений (orderedIds).');
+  }
+
+  try {
+    // Создаем массив операций для bulkWrite
+    const bulkOps = orderedIds.map((id, index) => ({
+      updateOne: {
+        filter: { _id: id },
+        update: { $set: { displayOrder: index } },
+      },
+    }));
+
+    // Выполняем операции одним запросом
+    const result = await GalleryImage.bulkWrite(bulkOps);
+
+    // Проверяем результат (опционально)
+    console.log('Bulk write result:', result);
+
+    res.status(200).json({ message: 'Порядок изображений успешно обновлен', modifiedCount: result.modifiedCount });
+
+  } catch (error) {
+    console.error('Ошибка обновления порядка изображений:', error);
+    res.status(500);
+    throw new Error('Не удалось обновить порядок изображений.');
+  }
+});
+
 module.exports = {
   getAllImages,
   getImageById,
   uploadImage,
   updateImage,
   deleteImage,
+  updateImageOrder,
 }; 

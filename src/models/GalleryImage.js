@@ -24,6 +24,10 @@ const galleryImageSchema = mongoose.Schema(
       type: String,
       required: false, // Может быть не у всех старых записей
     },
+    displayOrder: { // Поле для сортировки
+      type: Number,
+      default: 0, // По умолчанию порядок как при добавлении
+    },
   },
   {
     timestamps: true,
