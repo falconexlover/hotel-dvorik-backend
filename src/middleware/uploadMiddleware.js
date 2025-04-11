@@ -6,14 +6,14 @@ const storage = multer.memoryStorage();
 
 // Фильтр файлов (принимаем только изображения)
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif/;
+  const allowedTypes = /jpeg|jpg|png|gif|webp/;
   const mimetype = allowedTypes.test(file.mimetype);
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
 
   if (mimetype && extname) {
     return cb(null, true);
   } else {
-    cb(new Error('Ошибка: Разрешены только изображения (jpeg, jpg, png, gif)!'), false);
+    cb(new Error('Ошибка: Разрешены только изображения (jpeg, jpg, png, gif, webp)!'), false);
   }
 };
 

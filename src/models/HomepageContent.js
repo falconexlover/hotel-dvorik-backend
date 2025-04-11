@@ -24,6 +24,22 @@ const contactSchema = mongoose.Schema({
   email: { type: String, default: 'Email не указан' },
 }, { _id: false });
 
+// Схема для раздела "Детские праздники"
+const partySchema = mongoose.Schema({
+  title: { type: String, default: 'Детские праздники' },
+  content: { type: String, default: 'Описание для детских праздников...' },
+  imageUrls: { type: [String], default: [] }, 
+  cloudinaryPublicIds: { type: [String], default: [] }
+}, { _id: false });
+
+// Схема для раздела "Конференц-зал"
+const conferenceSchema = mongoose.Schema({
+  title: { type: String, default: 'Конференц-зал' },
+  content: { type: String, default: 'Описание конференц-зала...' },
+  imageUrls: { type: [String], default: [] }, 
+  cloudinaryPublicIds: { type: [String], default: [] }
+}, { _id: false });
+
 // Основная схема
 const homepageContentSchema = mongoose.Schema(
   {
@@ -39,6 +55,8 @@ const homepageContentSchema = mongoose.Schema(
     banner: { type: bannerSchema, default: () => ({}) },
     about: { type: aboutSchema, default: () => ({}) },
     contact: { type: contactSchema, default: () => ({}) },
+    party: { type: partySchema, default: () => ({}) },
+    conference: { type: conferenceSchema, default: () => ({}) }
   },
   {
     timestamps: true,

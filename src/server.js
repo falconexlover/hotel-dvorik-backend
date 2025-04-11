@@ -12,6 +12,7 @@ const serviceRoutes = require('./routes/serviceRoutes');
 const promotionRoutes = require('./routes/promotionRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const pageRoutes = require('./routes/pageRoutes');
+const articleRoutes = require('./routes/articleRoutes');
 const seedDatabase = require('./utils/seedData');
 
 // Загрузка переменных окружения
@@ -37,6 +38,7 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/payments', paymentRoutes);
 console.log("[server.js] Регистрация /api/pages с объектом типа:", typeof pageRoutes, pageRoutes);
 app.use('/api/pages', pageRoutes);
+app.use('/api/articles', articleRoutes);
 
 // Проверка API
 app.get('/', (req, res) => {

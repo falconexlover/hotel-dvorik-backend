@@ -37,6 +37,25 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Verify token and get user data
+// @route   GET /api/auth/verify
+// @access  Private (Uses protect middleware)
+const verifyToken = asyncHandler(async (req, res) => {
+  // Если protect middleware отработал успешно, req.user будет содержать данные пользователя
+  if (req.user) {
+    res.json({
+      _id: req.user._id,
+      username: req.user.username,
+      isAdmin: req.user.isAdmin
+    });
+  } else {
+    // Эта ситуация не должна произойти, если protect используется правильно
+    res.status(401);
+    throw new Error('Не удалось верифицировать пользователя');
+  }
+});
+
 module.exports = {
   loginUser,
+  verifyToken,
 }; 

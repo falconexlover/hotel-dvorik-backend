@@ -95,8 +95,116 @@ const uploadHomepageImage = asyncHandler(async (req, res) => {
   streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
 });
 
+// @desc    Добавить изображение в массив секции (conference, party)
+// @route   POST /api/homepage/section-image
+// @access  Private/Admin
+const addHomepageSectionImage = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    res.status(400);
+    throw new Error('Файл изображения не предоставлен');
+  }
+
+  const { section } = req.body; // 'conference' или 'party'
+  if (!section || (section !== 'conference' && section !== 'party')) {
+      res.status(400);
+      throw new Error('Необходимо указать корректную секцию (section: "conference" или "party") в теле запроса.');
+  }
+
+  const content = await HomepageContent.getSingleton();
+
+  // Загрузка в Cloudinary
+  const uploadStream = cloudinary.uploader.upload_stream(
+    { folder: `homepage-${section}` }, // Папка типа homepage-conference
+    async (error, result) => {
+      if (error) {
+        console.error('Cloudinary Upload Error (Section Image):', error);
+        res.status(500);
+        throw new Error('Ошибка при загрузке изображения секции');
+      }
+
+      try {
+        if (!content[section]) {
+            content[section] = { imageUrls: [], cloudinaryPublicIds: [] }; // Инициализируем секцию, если ее нет
+        }
+        // Гарантируем, что массивы существуют
+        if (!Array.isArray(content[section].imageUrls)) content[section].imageUrls = [];
+        if (!Array.isArray(content[section].cloudinaryPublicIds)) content[section].cloudinaryPublicIds = [];
+
+        content[section].imageUrls.push(result.secure_url);
+        content[section].cloudinaryPublicIds.push(result.public_id);
+        
+        const updatedContent = await content.save();
+        res.status(200).json(updatedContent[section]); // Возвращаем обновленную секцию
+
+      } catch (dbError) {
+        console.error('Database Save Error (Section Image):', dbError);
+        try {
+          await cloudinary.uploader.destroy(result.public_id);
+        } catch (cleanupError) {
+          console.error('Cloudinary cleanup error (Section Image) after DB error:', cleanupError);
+        }
+        res.status(500);
+        throw new Error('Ошибка при сохранении информации об изображении секции');
+      }
+    }
+  );
+
+  streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+});
+
+// @desc    Удалить изображение из массива секции (conference, party)
+// @route   DELETE /api/homepage/section-image
+// @access  Private/Admin
+const deleteHomepageSectionImage = asyncHandler(async (req, res) => {
+  const { section, publicId } = req.body; // publicId изображения для удаления
+
+  if (!section || (section !== 'conference' && section !== 'party')) {
+      res.status(400);
+      throw new Error('Необходимо указать корректную секцию (section: "conference" или "party")');
+  }
+  if (!publicId) {
+      res.status(400);
+      throw new Error('Необходимо указать publicId изображения для удаления');
+  }
+
+  const content = await HomepageContent.getSingleton();
+
+  if (!content[section] || !Array.isArray(content[section].cloudinaryPublicIds)) {
+      res.status(404);
+      throw new Error('Секция или массив изображений не найдены');
+  }
+
+  const publicIdIndex = content[section].cloudinaryPublicIds.indexOf(publicId);
+
+  if (publicIdIndex === -1) {
+      res.status(404);
+      throw new Error('Изображение с указанным publicId не найдено в этой секции');
+  }
+
+  try {
+    // Удаляем из Cloudinary
+    await cloudinary.uploader.destroy(publicId);
+
+    // Удаляем из массивов в БД
+    content[section].imageUrls.splice(publicIdIndex, 1);
+    content[section].cloudinaryPublicIds.splice(publicIdIndex, 1);
+
+    const updatedContent = await content.save();
+    res.status(200).json(updatedContent[section]); // Возвращаем обновленную секцию
+
+  } catch (error) {
+    console.error('Ошибка при удалении изображения секции:', error);
+    // Пытаемся сохранить контент, даже если удаление из Cloudinary не удалось?
+    // Или откатить изменения? Пока просто возвращаем ошибку
+    res.status(500);
+    throw new Error('Ошибка при удалении изображения секции');
+  }
+});
+
 module.exports = {
   getHomepage,
   updateHomepage,
   uploadHomepageImage,
+  addHomepageSectionImage,
+  deleteHomepageSectionImage,
 }; 
