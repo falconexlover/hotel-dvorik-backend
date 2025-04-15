@@ -8,7 +8,10 @@ const mongoose = require('mongoose');
 // @route   GET /api/rooms
 // @access  Public
 const getRooms = asyncHandler(async (req, res) => {
-  const rooms = await Room.find({}).sort({ displayOrder: 1, createdAt: -1 });
+  // Явно указываем поля, которые нужно вернуть, убирая description
+  const rooms = await Room.find({})
+    .select('_id title price pricePerNight capacity features imageUrls isAvailable displayOrder')
+    .sort({ displayOrder: 1, createdAt: -1 });
   res.json(rooms);
 });
 
@@ -99,7 +102,7 @@ const extractPublicIdFromUrl = (url) => {
 // @route   POST /api/rooms
 // @access  Private/Admin
 const createRoom = asyncHandler(async (req, res) => {
-  // Извлекаем поля из req.body
+  // Извлекаем поля из req.body, убираем description
   const { title, price, capacity, features, pricePerNight, isAvailable } = req.body;
 
   let processedFeatures = [];
@@ -131,13 +134,12 @@ const createRoom = asyncHandler(async (req, res) => {
     const newRoom = await Room.create({
       title,
       price,
-      // priceValue: priceValue || 0, // Используем pricePerNight
       pricePerNight: pricePerNight || 0,
       capacity: capacity || 1,
       features: processedFeatures,
       imageUrls: imageUploadResults.map(r => r.secure_url),
       cloudinaryPublicIds: imageUploadResults.map(r => r.public_id),
-      isAvailable: isAvailable === 'true' || isAvailable === true // Обрабатываем строку 'true'
+      isAvailable: isAvailable === 'true' || isAvailable === true
     });
     res.status(201).json(newRoom);
   } catch (dbError) {
@@ -163,7 +165,7 @@ const updateRoom = asyncHandler(async (req, res) => {
     throw new Error('Комната не найдена');
   }
 
-  // Извлекаем поля из req.body
+  // Извлекаем поля из req.body, убираем description
   const { title, price, capacity, features, pricePerNight, isAvailable, imagesToDelete } = req.body;
 
   room.title = title || room.title;
