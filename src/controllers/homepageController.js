@@ -18,12 +18,47 @@ const updateHomepage = asyncHandler(async (req, res) => {
   const content = await HomepageContent.getSingleton();
 
   // Обновляем поля данными из запроса
-  // Пример: Обновляем все поля, переданные в req.body
-  Object.assign(content, req.body);
+  for (const key in req.body) {
+    if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+      // Если ключ существует в модели (или это одна из известных секций)
+      if (content[key] !== undefined) {
+        // Если обновляемый ключ - это объект секции (party, conference, etc.)
+        if (typeof content[key] === 'object' && content[key] !== null && typeof req.body[key] === 'object' && req.body[key] !== null) {
+          const sectionData = req.body[key];
+          // Инициализируем объект секции в content, если он пуст или null
+          if (typeof content[key] !== 'object' || content[key] === null) {
+              content[key] = {};
+          }
+          // Обновляем только те поля секции, которые пришли в запросе 
+          // и не являются массивами изображений
+          for (const sectionKey in sectionData) {
+             if (Object.prototype.hasOwnProperty.call(sectionData, sectionKey) && sectionKey !== 'imageUrls' && sectionKey !== 'cloudinaryPublicIds') {
+                 // Убираем проверку content[key][sectionKey] !== undefined
+                 // Просто присваиваем значение из запроса
+                 content[key][sectionKey] = sectionData[sectionKey];
+             }
+          }
+          // Помечаем путь как измененный для Mongoose, если обновляли вложенные свойства
+          content.markModified(key);
+        } else if (key !== 'party' && key !== 'conference' && key !== 'sauna' && key !== 'banner' && key !== 'about') {
+          // Обновляем простые поля (не секции)
+          content[key] = req.body[key];
+        }
+      } else {
+          console.warn(`Попытка обновить несуществующее поле ${key} в HomepageContent`);
+      }
+    }
+  }
 
   // Сохраняем изменения
-  const updatedContent = await content.save();
-  res.json(updatedContent);
+  try {
+    const updatedContent = await content.save();
+    console.log("[HomepageController] Данные сохранены:", JSON.stringify(updatedContent));
+    res.json(updatedContent);
+  } catch(err) {
+      console.error("[HomepageController] Ошибка сохранения:", err);
+      res.status(500).json({ message: "Ошибка сохранения данных на сервере", error: err.message });
+  }
 });
 
 // @desc    Загрузить изображение для секции главной страницы

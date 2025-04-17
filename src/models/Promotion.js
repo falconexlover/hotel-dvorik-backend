@@ -58,7 +58,11 @@ const promotionSchema = new mongoose.Schema({
   //   type: Number, 
   //   default: 0 
   // },
-
+  imageUrl: {
+    type: String,
+    trim: true, // Удаляем пробелы
+    default: '' // Значение по умолчанию - пустая строка
+  },
 }, {
   timestamps: true, // Добавляет createdAt и updatedAt
 });
