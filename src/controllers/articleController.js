@@ -41,19 +41,61 @@ const getArticleBySlug = asyncHandler(async (req, res) => {
 // @route   POST /api/articles
 // @access  Private/Admin
 const createArticle = asyncHandler(async (req, res) => {
-  const { title, content, excerpt, author, category, tags } = req.body;
+  const { title, content, contentBlocks, excerpt, author, category, tags } = req.body;
 
-  if (!title || !content) {
+  // contentBlocks может прийти как строка (если FormData)
+  let parsedBlocks = contentBlocks;
+  if (typeof contentBlocks === 'string') {
+    try {
+      parsedBlocks = JSON.parse(contentBlocks);
+    } catch {
+      parsedBlocks = [];
+    }
+  }
+
+  if (!title || (!content && (!parsedBlocks || !Array.isArray(parsedBlocks) || parsedBlocks.length === 0))) {
     res.status(400);
     throw new Error('Заголовок и текст статьи обязательны');
   }
 
+  let imageUrl = '';
+  let imagePublicId = '';
+
+  // Если есть файл, загружаем в Cloudinary
+  if (req.file) {
+    const uploadFromBuffer = () => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'article-images' },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+    };
+    try {
+      const result = await uploadFromBuffer();
+      imageUrl = result.secure_url;
+      imagePublicId = result.public_id;
+    } catch (err) {
+      res.status(500);
+      throw new Error('Ошибка загрузки изображения статьи');
+    }
+  }
+
   try {
+    // Удаляем slug из req.body, если он есть, чтобы не мешать автогенерации
+    if ('slug' in req.body) delete req.body.slug;
     const newArticle = await Article.create({
       title,
-      content,
-      excerpt: excerpt || '', // excerpt будет сгенерирован автоматически, если пуст
+      content: content || (Array.isArray(parsedBlocks) ? (parsedBlocks.find(b => b.type === 'intro')?.text || '') : ''),
+      contentBlocks: parsedBlocks || [],
+      excerpt: excerpt || '',
       author: author || 'Администратор',
+      imageUrl,
+      imagePublicId,
       // category,
       // tags
     });

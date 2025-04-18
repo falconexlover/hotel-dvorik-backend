@@ -20,7 +20,7 @@ router.route('/slug/:slug')
 
 // --- Маршруты для админки --- //
 router.route('/')
-  .post(protect, admin, createArticle); // Создать новую статью
+  .post(protect, admin, uploadSingle, createArticle); // Теперь uploadSingle позволяет загружать файл сразу
 
 router.route('/:id')
   .put(protect, admin, updateArticle) // Обновить статью по ID

@@ -50,6 +50,10 @@ const articleSchema = new mongoose.Schema(
       trim: true,
       default: 'Администратор',
     },
+    contentBlocks: {
+      type: Array,
+      default: [],
+    },
     // Другие поля, если нужны (например, категория, теги)
     // category: {
     //   type: String,
