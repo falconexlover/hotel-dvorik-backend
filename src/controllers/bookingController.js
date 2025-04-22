@@ -79,10 +79,22 @@ const createBooking = asyncHandler(async (req, res) => {
   // TODO: Добавить более сложную проверку доступности комнаты на выбранные даты
   // Например, проверить, не пересекается ли запрашиваемый период с существующими бронированиями для этой комнаты.
 
-  // Расчет итоговой стоимости
-  const totalPrice = numberOfNights * room.pricePerNight;
+  // Расчет итоговой стоимости - НОВЫЙ ВАРИАНТ
+  let calculatedTotalPrice = numberOfNights * room.pricePerNight;
+  const ADULT_SURCHARGE_PER_NIGHT = 1400; // <--- Изменяем доплату на 1400
+
+  if (guests.adults === 2) {
+      calculatedTotalPrice += ADULT_SURCHARGE_PER_NIGHT * numberOfNights;
+      console.log(`Добавлена доплата за второго взрослого: ${ADULT_SURCHARGE_PER_NIGHT * numberOfNights} RUB`);
+  } else if (guests.adults > 2) {
+      // Опционально: добавьте логику для 3+ взрослых, если нужно
+      console.warn(`Расчет цены для ${guests.adults} взрослых пока не реализован.`);
+  }
+
+  const totalPrice = calculatedTotalPrice; // Используем новую переменную
+
   // --- Логирование --- 
-  console.log(`Расчет: ${numberOfNights} ночей * ${room.pricePerNight} = ${totalPrice} RUB`);
+  console.log(`Расчет: ${numberOfNights} ночей * ${room.pricePerNight} + доплаты = ${totalPrice} RUB`); // Новое логирование
   // --- Конец логирования ---
 
   // Генерация уникального номера бронирования

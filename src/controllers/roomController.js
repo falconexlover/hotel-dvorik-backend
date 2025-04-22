@@ -8,9 +8,8 @@ const mongoose = require('mongoose');
 // @route   GET /api/rooms
 // @access  Public
 const getRooms = asyncHandler(async (req, res) => {
-  // Явно указываем поля, которые нужно вернуть, убирая description
   const rooms = await Room.find({})
-    .select('_id title price pricePerNight capacity features imageUrls isAvailable displayOrder')
+    .select('_id title price pricePerNight capacity features imageUrls isAvailable displayOrder description')
     .sort({ displayOrder: 1, createdAt: -1 });
   res.json(rooms);
 });
@@ -102,8 +101,7 @@ const extractPublicIdFromUrl = (url) => {
 // @route   POST /api/rooms
 // @access  Private/Admin
 const createRoom = asyncHandler(async (req, res) => {
-  // Извлекаем поля из req.body, убираем description
-  const { title, price, capacity, features, pricePerNight, isAvailable } = req.body;
+  const { title, price, capacity, features, pricePerNight, isAvailable, description } = req.body;
 
   let processedFeatures = [];
   // Парсим features, если они пришли как JSON строка
@@ -137,6 +135,7 @@ const createRoom = asyncHandler(async (req, res) => {
       pricePerNight: pricePerNight || 0,
       capacity: capacity || 1,
       features: processedFeatures,
+      description: description || '',
       imageUrls: imageUploadResults.map(r => r.secure_url),
       cloudinaryPublicIds: imageUploadResults.map(r => r.public_id),
       isAvailable: isAvailable === 'true' || isAvailable === true
@@ -165,14 +164,16 @@ const updateRoom = asyncHandler(async (req, res) => {
     throw new Error('Комната не найдена');
   }
 
-  // Извлекаем поля из req.body, убираем description
-  const { title, price, capacity, features, pricePerNight, isAvailable, imagesToDelete } = req.body;
+  const { title, price, capacity, features, pricePerNight, isAvailable, imagesToDelete, description } = req.body;
 
   room.title = title || room.title;
   room.price = price || room.price;
   room.pricePerNight = pricePerNight !== undefined ? pricePerNight : room.pricePerNight;
   room.capacity = capacity || room.capacity;
   room.isAvailable = (isAvailable !== undefined) ? (isAvailable === 'true' || isAvailable === true) : room.isAvailable;
+  if (description !== undefined) {
+    room.description = description;
+  }
 
   // Обрабатываем features, если пришли как JSON строка
   if (features !== undefined) {
