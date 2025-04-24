@@ -58,6 +58,5 @@ const deleteFromCloudinary = (publicId) => {
 
 module.exports = {
   uploadToCloudinary,
-  deleteFromCloudinary,
-  cloudinary // Экспортируем настроенный экземпляр, если он нужен где-то еще
+  deleteFromCloudinary
 }; 

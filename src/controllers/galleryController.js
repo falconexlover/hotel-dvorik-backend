@@ -39,6 +39,13 @@ const uploadImage = asyncHandler(async (req, res) => {
 
   const { category, description } = req.body;
 
+  // Жёсткая проверка категории
+  const allowedCategories = ['rooms', 'sauna', 'conference', 'territory', 'party', 'food'];
+  if (!category || !allowedCategories.includes(category)) {
+    res.status(400);
+    throw new Error('Категория обязательна и должна быть одной из: ' + allowedCategories.join(', '));
+  }
+
   // Загрузка в Cloudinary из буфера
   const uploadStream = cloudinary.uploader.upload_stream(
     { folder: "hotel-gallery" }, // Опционально: папка в Cloudinary
@@ -54,7 +61,7 @@ const uploadImage = asyncHandler(async (req, res) => {
         const newImage = await GalleryImage.create({
           imageUrl: result.secure_url,
           cloudinaryPublicId: result.public_id,
-          category: category || 'Другое',
+          category: category,
           description: description || '',
         });
         res.status(201).json(newImage);

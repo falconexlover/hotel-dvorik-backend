@@ -1,5 +1,8 @@
 const mongoose = require('mongoose');
 
+// Отключаем warning по strictQuery
+mongoose.set('strictQuery', false);
+
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI);

@@ -36,7 +36,7 @@ app.use('/api/homepage', homepageRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/payments', paymentRoutes);
-console.log("[server.js] Регистрация /api/pages с объектом типа:", typeof pageRoutes, pageRoutes);
+// console.log("[server.js] Регистрация /api/pages с объектом типа:", typeof pageRoutes, pageRoutes);
 app.use('/api/pages', pageRoutes);
 app.use('/api/articles', articleRoutes);
 
