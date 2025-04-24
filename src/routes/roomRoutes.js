@@ -12,6 +12,9 @@ const {
 const { protect } = require('../middleware/authMiddleware');
 const { uploadSingle, uploadMultiple } = require('../middleware/uploadMiddleware');
 
+// Добавляю парсер обычных полей формы после multer
+router.use(express.urlencoded({ extended: true }));
+
 // Получить все комнаты
 router.get('/', getRooms);
 

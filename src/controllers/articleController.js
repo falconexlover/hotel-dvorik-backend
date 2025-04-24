@@ -147,6 +147,10 @@ const updateArticle = asyncHandler(async (req, res) => {
   article.author = author !== undefined ? author : article.author;
   // article.category = category;
   // article.tags = tags;
+  // Если slug отсутствует (например, у старых статей), генерируем его
+  if (!article.slug && article.title) {
+    article.slug = require('../models/Article').generateSlug(article.title);
+  }
 
   try {
     const updatedArticle = await article.save();

@@ -1,16 +1,9 @@
 const mongoose = require('mongoose');
 
-// Простая функция для создания slug (можно заменить на библиотеку slugify)
+// Простая функция для создания slug (теперь только цифры)
 const generateSlug = (title) => {
-  return title
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-') // Заменяем пробелы на -
-    .replace(/[^\w-]+/g, '') // Удаляем не-буквенно-цифровые символы (кроме -)
-    .replace(/--+/g, '-') // Заменяем множественные -- на один -
-    .replace(/^-+/, '') // Убираем - в начале
-    .replace(/-+$/, ''); // Убираем - в конце
+  // Генерируем случайную строку из 8 цифр
+  return Math.random().toString().slice(2, 10);
 };
 
 const articleSchema = new mongoose.Schema(
@@ -100,3 +93,4 @@ articleSchema.pre('save', function (next) {
 const Article = mongoose.model('Article', articleSchema);
 
 module.exports = Article; 
+module.exports.generateSlug = generateSlug; 
