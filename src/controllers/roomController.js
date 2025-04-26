@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 // @access  Public
 const getRooms = asyncHandler(async (req, res) => {
   const rooms = await Room.find({})
-    .select('_id title price pricePerNight capacity features imageUrls isAvailable displayOrder description')
+    .select('_id title price pricePerNight capacity features imageUrls isAvailable displayOrder description fullDescription')
     .sort({ displayOrder: 1, createdAt: -1 });
   res.json(rooms);
 });
@@ -101,7 +101,7 @@ const extractPublicIdFromUrl = (url) => {
 // @route   POST /api/rooms
 // @access  Private/Admin
 const createRoom = asyncHandler(async (req, res) => {
-  const { title, price, capacity, features, pricePerNight, isAvailable, description } = req.body;
+  const { title, price, capacity, features, pricePerNight, isAvailable, description, fullDescription } = req.body;
 
   let processedFeatures = [];
   // Парсим features, если они пришли как JSON строка
@@ -136,6 +136,7 @@ const createRoom = asyncHandler(async (req, res) => {
       capacity: capacity || 1,
       features: processedFeatures,
       description: description || '',
+      fullDescription: fullDescription || '',
       imageUrls: imageUploadResults.map(r => r.secure_url),
       cloudinaryPublicIds: imageUploadResults.map(r => r.public_id),
       isAvailable: isAvailable === 'true' || isAvailable === true
@@ -164,7 +165,7 @@ const updateRoom = asyncHandler(async (req, res) => {
     throw new Error('Комната не найдена');
   }
 
-  const { title, price, capacity, features, pricePerNight, isAvailable, imagesToDelete, description } = req.body;
+  const { title, price, capacity, features, pricePerNight, isAvailable, imagesToDelete, description, fullDescription } = req.body;
 
   room.title = title || room.title;
   room.price = price || room.price;
@@ -173,6 +174,9 @@ const updateRoom = asyncHandler(async (req, res) => {
   room.isAvailable = (isAvailable !== undefined) ? (isAvailable === 'true' || isAvailable === true) : room.isAvailable;
   if (description !== undefined) {
     room.description = description;
+  }
+  if (fullDescription !== undefined) {
+    room.fullDescription = fullDescription;
   }
 
   // Обрабатываем features, если пришли как JSON строка
